@@ -12,6 +12,8 @@ nO_SECS_BETWEEN_CYCLES = 5
 data GameState = GameState {
                    infoToShow  :: InfoToShow
                  , elapsedTime :: Float
+                 , player :: Player
+                 , enemies :: [Enemy]
                  }
 
 initialState :: GameState

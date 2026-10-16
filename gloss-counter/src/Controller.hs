@@ -25,7 +25,8 @@ input :: Event -> GameState -> IO GameState
 input e gstate = return (inputKey e gstate)
 
 inputKey :: Event -> GameState -> GameState
-inputKey (EventKey (Char c) _ _ _) gstate
-  = -- If the user presses a character key, show that one
-    gstate { infoToShow = ShowAChar c }
+inputKey (EventKey (SpecialKey c) _ _ _) gstate | c == KeyUp = gstate { infoToShow = ShowAChar 'u'}
+                                                | c == KeyLeft = gstate { infoToShow = ShowAChar 'l'}
+
+
 inputKey _ gstate = gstate -- Otherwise keep the same
