@@ -11,4 +11,4 @@ $RECYCLE.BIN/
 # Windows shortcuts
 *.lnk
 
-/dist-newstyle
+dist-newstyle/
