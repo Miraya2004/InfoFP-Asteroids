@@ -6,39 +6,43 @@ import Data.Vector2
 data InfoToShow = ShowNothing
                 | ShowANumber Int
                 | ShowAChar   Char
--- Temporary datastructure?
-data Position = Position (Float, Float)
 
-
+data Position = Position (Float, Float) 
+                  deriving Show
 
 data ScreenState = Playing | Paused | Menu
 data Projectile = Proj{
   enemy :: Bool
-,  projPosition :: Position
-,  projSpeed :: Vector2 Int
-,  lifetime :: Int
+, projPosition :: Position
+, projSpeed :: Vector2 Float
+, lifetime :: Int
 }
 
 data Enemy = Sauce Saucer | Aster Asteroid
 
 data Saucer = Saucer {
   saucserPosition :: Position
-, saucerSpeed :: Vector2 Int
+, saucerSpeed :: Vector2 Float
 , saucerSize :: Int
 }
 
 data Asteroid = Asteroid {
   asteroidPosition :: Position
-, asteroidSpeed :: Vector2 Int
+, asteroidSpeed :: Vector2 Float
 , asteroidSize :: Int
 }
 
 data Player = Player {
   playerPosition :: Position
-, playerSpeed :: Vector2 Int
+, playerSpeed :: Vector2 Float
+, playerRotation :: Rotation
 , bulletCount :: Int
 , lives :: Int
 }
+data Rotation = Rotation Float 
+                  deriving Show
+
+data Direction = DirLeft | DirRight
 
 nO_SECS_BETWEEN_CYCLES :: Float
 nO_SECS_BETWEEN_CYCLES = 5
@@ -47,11 +51,20 @@ data GameState = GameState {
                    infoToShow  :: InfoToShow
                  , elapsedTime :: Float
                  , player :: Maybe Player
-                 , enemies :: Maybe [Enemy]
-                 , screenState :: Maybe ScreenState
+                 , enemies :: [Enemy]
+                 , screenState :: ScreenState
                  , score :: Int
-                 , projectiles :: Maybe [Projectile]
+                 , projectiles :: [Projectile]
                  }
 
 initialState :: GameState
-initialState = GameState ShowNothing 0 Nothing Nothing Nothing 0 Nothing
+initialState = GameState ShowNothing 0 (Just initialPlayer) [] Menu 0 []
+
+initialPlayer :: Player
+initialPlayer = Player
+    { playerPosition = Position (0, 0)
+    , playerSpeed = vector2 0 0
+    , playerRotation = Rotation 0
+    , bulletCount = 0
+    , lives = 3
+    }
