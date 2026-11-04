@@ -14,11 +14,13 @@ import Data.Vector2
 step :: Float -> GameState -> IO GameState
 step secs gstate
     | screenState gstate == Paused = return gstate
-    | otherwise = return $ 
-                    (checkPlayerCollisions
-                        (applyMovement secs 
-                            (applyDeceleration secs 
-                                (useHeldKeys secs gstate))))
+    | otherwise = return $
+        (removeExpiredProjectiles
+            (fmapProjectilesLifetime secs
+                (applyProjectileMovement secs
+                    (applyMovement secs
+                        (applyDeceleration secs
+                            (useHeldKeys secs gstate))))))
         { elapsedTime = elapsedTime gstate + secs }
 
 applyDeceleration :: Float -> GameState -> GameState
@@ -28,6 +30,15 @@ applyDeceleration secs gstate
 
 applyMovement :: Float -> GameState -> GameState
 applyMovement secs gstate = gstate { player = fmap (movePlayer secs) (player gstate) }
+
+applyProjectileMovement :: Float -> GameState -> GameState
+applyProjectileMovement secs gstate = gstate { projectiles = map (moveProjectile secs) (projectiles gstate) }
+
+updateProjectileLifetime :: Float -> Projectile -> Projectile 
+updateProjectileLifetime secs projectile = projectile { lifetime = lifetime projectile - secs}
+
+removeExpiredProjectiles :: GameState -> GameState
+removeExpiredProjectiles gstate = gstate { projectiles = filter ((> 0) . lifetime) (projectiles gstate)}
 
 
 --  | elapsedTime gstate + secs > nO_SECS_BETWEEN_CYCLES
@@ -78,8 +89,50 @@ turnPlayer secs direction player = player { playerRotation = Rotation (resAngle)
                                                  | otherwise = newAngle
 
 shootBullet :: GameState -> GameState
-shootBullet g = g
+shootBullet gstate = 
+    case player gstate of
+        Nothing -> gstate
+        Just p  -> gstate { projectiles = createPlayerProjectile p : projectiles gstate}
+
 -- Add Projectile to gstate with Players rotation and position, with a set speed. Check for 4 bullets to stop shooting.
+
+createPlayerProjectile :: Player -> Projectile
+createPlayerProjectile p = Proj{ enemy = False, projPosition = playerPosition p , projSpeed = bulletSpeed *^ direction, lifetime = bulletLifetime}
+        where
+            Rotation angle = playerRotation p 
+            direction = vector2 (cos angle) (sin angle)
+            bulletSpeed = 400
+            bulletLifetime = 2.0
+
+createSmartProjectile :: Position -> Position -> Projectile
+createSmartProjectile enemyPosision playerPosition = Proj { enemy = True, projPosition = enemyPosision, projSpeed = bulletSpeed *^ direction, lifetime = bulletLifetime}
+    where 
+        dx = firstPos playerPosition - firstPos enemyPosition
+        dy = secondPos playerPosition - secondPos enemyPosition
+        distance = sqrt (dx * dx + dy * dy)
+        direction = vector2 (dx / distance) (dy / distance)
+        bulletSpeed = 400
+        bulletLifetime = 2.0
+
+createRandomProjectile :: Position -> StdGen -> (Projectile, StdGen)
+createSmartProjectile enemyPosision gen = 
+    let (angle, newGen) = randomR (0, 2 * pi) gen
+        direction = vector2 (cos angle) (sin angle)
+        bulletSpeed = 400
+        bulletLifetime = 2.0
+        projectile = Proj{ enemy = True, projPosition = enemyPosision, projSpeed = bulletSpeed *^ direction, lifetime = bulletLifetime }
+    in (projectile, newGen)
+
+moveProjectile :: Float -> Projectile -> Projectile
+moveProjectile secs projectile =
+    projectile { projPosition = newPosition }
+    where
+        Position (x, y) = projPosition projectile
+        (vx, vy) = vector2XY (projSpeed projectile)
+
+        position = Position (x + vx * secs, y + vy * secs)
+        newPosition = wrapPosition position
+
 
 
 acceleratePlayer :: Float -> Player -> Player
@@ -188,6 +241,8 @@ firstPos (Position(x, y)) = x
 secondPos :: Position -> Float
 secondPos (Position(x, y)) = y
 
+fmapProjectilesLifetime :: Float -> GameState -> GameState
+fmapProjectilesLifetime secs gstate = gstate { projectiles = map (updateProjectileLifetime secs) (projectiles gstate) }
 
                                     
 
@@ -224,7 +279,7 @@ secondPos (Position(x, y)) = y
 
 -- Game mechanics:
 --   Implement collision detection. [O]
---   Implement collision responses.
+--   Implement collision responses. [o]
 --   Add scoring.
 --   Add difficulty progression.
 

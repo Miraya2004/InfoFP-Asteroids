@@ -17,7 +17,7 @@ data Projectile = Proj{
   enemy :: Bool
 , projPosition :: Position
 , projSpeed :: Vector2 Float
-, lifetime :: Int
+, lifetime :: Float
 }
 
 data Enemy = Sauce Saucer | Aster Asteroid
