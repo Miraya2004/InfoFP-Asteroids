@@ -24,9 +24,10 @@ data Projectile = Proj{
 data Enemy = Sauce Saucer | Aster Asteroid
 
 data Saucer = Saucer {
-  saucserPosition :: Position
+  saucerPosition :: Position
 , saucerSpeed :: Vector2 Float
 , saucerSize :: Int
+, saucerShootingCooldown :: Float
 }
 
 data Asteroid = Asteroid {
@@ -47,8 +48,6 @@ data Rotation = Rotation Float
 
 data Direction = DirLeft | DirRight
 
-nO_SECS_BETWEEN_CYCLES :: Float
-nO_SECS_BETWEEN_CYCLES = 5
 
 data GameState = GameState {
                    infoToShow  :: InfoToShow

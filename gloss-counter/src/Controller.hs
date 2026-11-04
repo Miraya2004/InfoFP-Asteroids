@@ -9,21 +9,24 @@ import Graphics.Gloss.Interface.IO.Game
 import System.Random
 import Data.VectorSpace
 import Data.Vector2
+import Data.List (mapAccumL)
 
 -- | Handle one iteration of the game
 step :: Float -> GameState -> IO GameState
 step secs gstate
     | screenState gstate == Paused = return gstate
     | otherwise = return $
-        
-        (checkPlayerCollisions
-        (removeExpiredProjectiles
-            (fmapProjectilesLifetime secs
-                (applyProjectileMovement secs
-                    (applyEnemyMovement secs
-                        (applyMovement secs
-                            (applyDeceleration secs
-                                (useHeldKeys secs gstate))))))))
+        (checkAsteroidCollisions
+            (checkPlayerCollisions
+                (removeExpiredProjectiles
+                    (fmapProjectilesLifetime secs
+                        (applySaucerShooting secs
+                            (applyProjectileMovement secs
+                                (applyEnemyMovement secs
+                                    (applyMovement secs
+                                        (applyDeceleration secs
+                                            (useHeldKeys secs
+                                                (periodicSpawner secs gstate)))))))))))
         { elapsedTime = elapsedTime gstate + secs }
 
 -- Apply everything in step
@@ -49,8 +52,23 @@ applyEnemyMovement :: Float -> GameState -> GameState
 applyEnemyMovement secs gstate = gstate { enemies = map moveEnemy (enemies gstate)}
     where
         moveEnemy (Aster asteroid) = Aster (moveAsteroid secs asteroid)
-        moveEnemy enemy = enemy -- PlaceHolder until saucers are implemented
+        moveEnemy (Sauce saucer) = Sauce (moveSaucer secs saucer)
 
+applySaucerShooting :: Float -> GameState -> GameState
+applySaucerShooting secs gstate =
+    let 
+        (newGen, results) = mapAccumL shootEnemy (randomGenerator gstate) (enemies gstate)
+        newEnemies = map fst results
+        newProjectiles = [p | (_, Just p) <- results]
+    in 
+        gstate { enemies = newEnemies, projectiles = newProjectiles ++ projectiles gstate, randomGenerator = newGen}
+    where
+        shootEnemy gen (Aster asteroid) = (gen, (Aster asteroid, Nothing))
+        shootEnemy gen (Sauce saucer) = 
+            let 
+                (newSaucer, projectile, newGen) = updateSaucerFiring secs (player gstate) saucer gen
+            in  
+                (newGen, (Sauce newSaucer, projectile))
 
 -- | Handle user input
 input :: Event -> GameState -> IO GameState
@@ -190,6 +208,13 @@ wrapPosition position = Position (newX, newY)
                         | y > 600 = y - 600
                         | otherwise = y
 
+wrapYPosition :: Position -> Position
+wrapYPosition position = Position (firstPos position, newY)
+            where
+                newY = wrapY (secondPos position)
+                wrapY y | y < 0 = y + 600
+                        | y > 600 = y - 600
+                        | otherwise = y
 
 -- Collisions functions 
 
@@ -307,7 +332,7 @@ checkAsteroidCollisions gstate =
         
         projectileHit asteroid = any (\projectile -> playerProjectileHit (Aster asteroid) projectile) (projectiles gstate)
         saucerHit asteroid = any (\enemy -> case enemy of 
-                                            Sauce saucer -> asteroidCollider (saucserPosition saucer) asteroid
+                                            Sauce saucer -> asteroidCollider (saucerPosition saucer) asteroid
                                             _ -> False) (enemies gstate)
         playerHit asteroid =
             case player gstate of 
@@ -326,6 +351,68 @@ checkAsteroidCollisions gstate =
                                                     Aster asteroid -> playerProjectileHit (Aster asteroid) projectile
                                                     _ -> False) (enemies gstate)
 
+
+--Saucer functions
+spawnSaucer :: StdGen -> (Saucer, StdGen)
+spawnSaucer gen =
+    let
+        (side, gen1) = randomR (0, 1 :: Int) gen
+        (randY, gen2) = randomR (-280, 280) gen1
+        (size, gen3) = randomR (1, 2 :: Int) gen2
+        (speed_, gen4) = randomR (30, 60) gen3
+        cooldown = 1.5
+        angle = 0
+
+        direction = if side == 0 then 1 else -1
+        x = if side == 0 then -400 else 400
+        position = Position (x, randY)
+        speed = vector2 (direction * speed_ * cos angle) 0
+
+        saucer = Saucer{ saucerPosition = position
+        , saucerSpeed = speed 
+        , saucerSize = size
+        , saucerShootingCooldown = cooldown
+        }
+    in 
+        (saucer, gen4)
+
+moveSaucer :: Float -> Saucer -> Saucer
+moveSaucer secs saucer =
+    saucer { saucerPosition = newPosition}
+    where
+        (vx, vy) = vector2XY (saucerSpeed saucer)
+        Position (x, y) = saucerPosition saucer
+        
+        position = Position (x + vx * secs, y + vy * secs)
+        newPosition = wrapYPosition position
+
+updateSaucerFiring :: Float -> Maybe Player -> Saucer -> StdGen -> (Saucer, Maybe Projectile, StdGen)
+updateSaucerFiring secs maybePlayer saucer gen 
+    | newCooldown > 0 = (saucer { saucerShootingCooldown = newCooldown }, Nothing, gen)
+    | saucerSize saucer == 1 =
+        case maybePlayer of
+            Nothing -> (saucer {saucerShootingCooldown = 1.5}, Nothing, gen)
+            Just p ->
+                let projectile = createSmartProjectile (saucerPosition saucer) (playerPosition p)
+                in (saucer { saucerShootingCooldown = 1.5 }, Just projectile, gen)
+    | saucerSize saucer == 2 =
+        let (projectile, newGen) = createRandomProjectile (saucerPosition saucer) gen
+        in (saucer {saucerShootingCooldown = 1.5}, Just projectile, newGen)
+    | otherwise = (saucer, Nothing, gen)
+    where newCooldown = saucerShootingCooldown saucer - secs
+
+periodicSpawner :: Float -> GameState -> GameState
+periodicSpawner secs gstate 
+    | floor (newTime / spawnCycleTime) > floor (oldTime / spawnCycleTime) = 
+        let 
+            (saucer, newGen) = spawnSaucer (randomGenerator gstate)
+        in 
+            gstate { enemies = Sauce saucer : enemies gstate, randomGenerator = newGen}
+    | otherwise = gstate
+    where
+        spawnCycleTime = 30
+        oldTime = elapsedTime gstate
+        newTime = oldTime + secs
 
 --Helper functions
 
@@ -366,9 +453,9 @@ fmapProjectilesLifetime secs gstate = gstate { projectiles = map (updateProjecti
 --   Implement asteroid destruction and splitting. [x]
 
 -- Enemies:
---   Implement enemy saucers.
---   Add saucer movement and behaviour.
---   Add saucer spawning.
+--   Implement enemy saucers. [x]
+--   Add saucer movement and behaviour. [o]
+--   Add saucer spawning. [x]
 
 -- Game mechanics:
 --   Implement collision detection. [o]
