@@ -14,7 +14,11 @@ import Data.Vector2
 step :: Float -> GameState -> IO GameState
 step secs gstate
     | screenState gstate == Paused = return gstate
-    | otherwise = return $ (applyMovement secs (applyDeceleration secs (useHeldKeys secs gstate)))
+    | otherwise = return $ 
+                    (checkPlayerCollisions
+                        (applyMovement secs 
+                            (applyDeceleration secs 
+                                (useHeldKeys secs gstate))))
         { elapsedTime = elapsedTime gstate + secs }
 
 applyDeceleration :: Float -> GameState -> GameState
@@ -61,23 +65,27 @@ useKey secs gstate (SpecialKey KeyRight) = gstate { player = fmap (turnPlayer se
 useKey secs gstate _ = gstate
 
 turnPlayer :: Float -> Direction -> Player -> Player
-turnPlayer secs direction player = player { playerRotation = Rotation (newAngle) }
+turnPlayer secs direction player = player { playerRotation = Rotation (resAngle) }
                                     where 
                                         Rotation angle = playerRotation player
                                         rotationSpeed = 2 * pi
                                         directionSign = case direction of
                                             DirLeft -> -1
                                             DirRight -> 1
-                                        newAngle = angle + directionSign * rotationSpeed * secs
+                                        newAngle = (angle + directionSign * rotationSpeed * secs) 
+                                        resAngle | newAngle > (2 * pi) = newAngle - (2 * pi)
+                                                 | newAngle < 0 = newAngle + (2 * pi)
+                                                 | otherwise = newAngle
 
 shootBullet :: GameState -> GameState
 shootBullet g = g
 -- Add Projectile to gstate with Players rotation and position, with a set speed. Check for 4 bullets to stop shooting.
 
+
 acceleratePlayer :: Float -> Player -> Player
 acceleratePlayer secs p = p { playerSpeed = newSpeed } 
                     where 
-                        acceleration = 5
+                        acceleration = 40
                         topSpeed = 300
                         Rotation playerAngle = playerRotation p 
 
@@ -95,22 +103,107 @@ deceleratePlayer secs p = p { playerSpeed = newSpeed }
                     where
                         friction = 0.8
                         factor = max 0 (1 - friction * secs)
-                        newSpeed = factor *^ playerSpeed p 
+                        spd = playerSpeed p
+                        newSpeed | vector2Rho (playerSpeed p) > 1 = factor *^ playerSpeed p 
+                                 | otherwise = 0 *^ playerSpeed p
                     
 movePlayer :: Float -> Player -> Player
 movePlayer secs p = p { playerPosition = newPosition }
     where
         Position (x, y) = playerPosition p
         (vx, vy) = vector2XY (playerSpeed p)
+        position = Position (x + vx * secs, y + vy * secs)
+        newPosition = wrapPosition position
 
-        newPosition = Position (x + vx * secs, y + vy * secs)
+wrapPosition :: Position -> Position
+wrapPosition position = Position (newX, newY)
+            where 
+                newX = wrapX (firstPos position)
+                newY = wrapY (secondPos position) 
+                wrapX x | x < 0 = x + 800
+                        | x > 800 = x - 800
+                        | otherwise = x
+                wrapY y | y < 0 = y + 600
+                        | y > 600 = y - 600
+                        | otherwise = y
+
+asteroidCollider :: Position -> Asteroid -> Bool
+asteroidCollider pos asteroid | asteroidSize asteroid == 3 = -30 < x && x < 30 && -30 < y && y < 30
+                              | asteroidSize asteroid == 2 = -20 < x && x < 20 && -20 < y && y < 20
+                              | asteroidSize asteroid == 1 = -10 < x && x < 10 && -10 < y && y < 10
+                              | otherwise = False
+                            where 
+                              x = firstPos (asteroidPosition asteroid) - firstPos pos
+                              y = secondPos (asteroidPosition asteroid) - secondPos pos
+                            
+
+enemyProjectileHit :: Player -> Projectile -> Bool
+enemyProjectileHit player projectile = -5 < x && x < 5 && -5 < y && y < 5
+                                where 
+                                    x = firstPos (playerPosition player) - firstPos (projPosition projectile)
+                                    y = secondPos (playerPosition player) - secondPos (projPosition projectile)
+
+playerProjectileHit :: Enemy -> Projectile -> Bool
+playerProjectileHit (Aster(asteroid)) projectile = asteroidCollider (projPosition projectile) asteroid
+
+playerEnemyHit :: Player -> Enemy -> Bool
+playerEnemyHit player (Aster(asteroid)) = asteroidCollider (playerPosition player) asteroid
+
+respawnPlayer :: Player -> Player
+respawnPlayer oldPlayer = initialPlayer { lives = lives oldPlayer }
+
+destroyPlayer :: GameState -> GameState
+destroyPlayer gstate = case player gstate of
+                        Nothing -> gstate 
+                        Just p -> 
+                            let remLives = lives p - 1
+                            in if remLives > 0 
+                                then gstate {player = Just (respawnPlayer (p {lives = remLives}))}
+                                else gstate {player = Nothing}
+
+checkPlayerCollisions :: GameState -> GameState
+checkPlayerCollisions gstate = 
+    case player gstate of 
+        Nothing -> gstate
+        Just p -> 
+            if asteroidCollision p || projectileCollision p 
+                then destroyPlayer gstate
+                else gstate
+    where 
+        asteroidCollision p = any (playerEnemyHit p) [e | e@(Aster _) <- enemies gstate]
+        projectileCollision p = any (enemyProjectileHit p) (filter enemy (projectiles gstate))
+
+
+
+
+
+
+
+
+
+--Helper functions
+
+firstPos :: Position -> Float
+firstPos (Position(x, y)) = x
+secondPos :: Position -> Float
+secondPos (Position(x, y)) = y
+
+
+                                    
+
+
+
+
+
+
+
 
 
 -- TODO:
 -- Player:
---   Add screen wrapping.
---   Add player lives and respawning.
---   Add player destruction.
+--   Add screen wrapping. [x]
+--   Add player lives and respawning. [x] (TODO respawnInvuln)
+--   Add player destruction. [x]
 
 -- Projectiles:
 --   Implement bullet creation.
@@ -130,7 +223,7 @@ movePlayer secs p = p { playerPosition = newPosition }
 --   Add saucer spawning.
 
 -- Game mechanics:
---   Implement collision detection.
+--   Implement collision detection. [O]
 --   Implement collision responses.
 --   Add scoring.
 --   Add difficulty progression.
