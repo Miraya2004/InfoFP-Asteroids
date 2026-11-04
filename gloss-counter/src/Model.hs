@@ -2,6 +2,7 @@
 --   which represent the state of the game
 module Model where
 import Data.Vector2
+import Graphics.Gloss.Interface.IO.Game
 
 data InfoToShow = ShowNothing
                 | ShowANumber Int
@@ -11,6 +12,7 @@ data Position = Position (Float, Float)
                   deriving Show
 
 data ScreenState = Playing | Paused | Menu
+                    deriving Eq
 data Projectile = Proj{
   enemy :: Bool
 , projPosition :: Position
@@ -55,10 +57,11 @@ data GameState = GameState {
                  , screenState :: ScreenState
                  , score :: Int
                  , projectiles :: [Projectile]
+                 , heldKeys :: [Key]
                  }
 
 initialState :: GameState
-initialState = GameState ShowNothing 0 (Just initialPlayer) [] Menu 0 []
+initialState = GameState ShowNothing 0 (Just initialPlayer) [] Playing 0 [] []
 
 initialPlayer :: Player
 initialPlayer = Player
