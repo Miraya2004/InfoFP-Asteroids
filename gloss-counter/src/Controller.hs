@@ -23,6 +23,8 @@ step secs gstate
                             (useHeldKeys secs gstate))))))
         { elapsedTime = elapsedTime gstate + secs }
 
+-- Apply everything in step
+
 applyDeceleration :: Float -> GameState -> GameState
 applyDeceleration secs gstate
     | SpecialKey KeyUp `elem` heldKeys gstate = gstate
@@ -40,15 +42,13 @@ updateProjectileLifetime secs projectile = projectile { lifetime = lifetime proj
 removeExpiredProjectiles :: GameState -> GameState
 removeExpiredProjectiles gstate = gstate { projectiles = filter ((> 0) . lifetime) (projectiles gstate)}
 
+applyEnemyMovement :: Float -> GameState -> GameState
+applyEnemyMovement secs gstate = gstate { enemies = map moveEnemy (enemies gstate)}
+    where
+        moveEnemy (Aster asteroid) = Aster (moveAsteroid secs asteroid)
+        moveEnemy enemy = enemy -- PlaceHolder until saucers are implemented
 
---  | elapsedTime gstate + secs > nO_SECS_BETWEEN_CYCLES
---  = -- We show a new random number
---    do randomNumber <- randomIO
---       let newNumber = abs randomNumber `mod` 10
---       return $ (useHeldKeys gstate) {infoToShow = ShowANumber newNumber}
---  | otherwise
--- Just update the elapsed time
-    
+
 -- | Handle user input
 input :: Event -> GameState -> IO GameState
 input e gstate = return (inputKey e gstate)
@@ -88,6 +88,8 @@ turnPlayer secs direction player = player { playerRotation = Rotation (resAngle)
                                                  | newAngle < 0 = newAngle + (2 * pi)
                                                  | otherwise = newAngle
 
+
+-- Projectile Functions
 shootBullet :: GameState -> GameState
 shootBullet gstate | length playerBullets >= 4 = gstate
                    | otherwise = 
@@ -98,7 +100,6 @@ shootBullet gstate | length playerBullets >= 4 = gstate
                         playerBullets = filter (not . enemy) (projectiles gstate)
 
 
--- Add Projectile to gstate with Players rotation and position, with a set speed. Check for 4 bullets to stop shooting.
 
 createPlayerProjectile :: Player -> Projectile
 createPlayerProjectile p = Proj{ enemy = False, projPosition = playerPosition p , projSpeed = bulletSpeed *^ direction, lifetime = bulletLifetime}
@@ -139,6 +140,8 @@ moveProjectile secs projectile =
 
 
 
+--Player Movmment
+
 acceleratePlayer :: Float -> Player -> Player
 acceleratePlayer secs p = p { playerSpeed = newSpeed } 
                     where 
@@ -154,7 +157,7 @@ acceleratePlayer secs p = p { playerSpeed = newSpeed }
                         
                         newSpeed | currentSpeed > topSpeed = (topSpeed / currentSpeed) *^ acceleratedSpeed 
                                  | otherwise = acceleratedSpeed
--- Add a fixed amount to the player speed. Decelerate when the player is not holding up. 
+
 deceleratePlayer :: Float -> Player -> Player 
 deceleratePlayer secs p = p { playerSpeed = newSpeed }
                     where
@@ -184,6 +187,9 @@ wrapPosition position = Position (newX, newY)
                         | y > 600 = y - 600
                         | otherwise = y
 
+
+-- Collisions functions 
+
 asteroidCollider :: Position -> Asteroid -> Bool
 asteroidCollider pos asteroid | asteroidSize asteroid == 3 = -30 < x && x < 30 && -30 < y && y < 30
                               | asteroidSize asteroid == 2 = -20 < x && x < 20 && -20 < y && y < 20
@@ -205,6 +211,10 @@ playerProjectileHit (Aster(asteroid)) projectile = asteroidCollider (projPositio
 
 playerEnemyHit :: Player -> Enemy -> Bool
 playerEnemyHit player (Aster(asteroid)) = asteroidCollider (playerPosition player) asteroid
+
+
+
+--Player Hits Functions
 
 respawnPlayer :: Player -> Player
 respawnPlayer oldPlayer = initialPlayer { lives = lives oldPlayer }
@@ -230,7 +240,17 @@ checkPlayerCollisions gstate =
         asteroidCollision p = any (playerEnemyHit p) [e | e@(Aster _) <- enemies gstate]
         projectileCollision p = any (enemyProjectileHit p) (filter enemy (projectiles gstate))
 
+-- Asteroid Functions
 
+moveAsteroid :: Float -> Asteroid -> Asteroid
+moveAsteroid secs asteroid =
+    asteroid { asteroidPosition = newPosition }
+    where
+        Position (x, y) = asteroidPosition asteroid
+        (vx, vy) = vector2XY (asteroidSpeed asteroid)
+
+        position = Position (x + vx * secs, y + vy * secs)
+        newPosition = wrapPosition position
 
 
 
@@ -268,12 +288,12 @@ fmapProjectilesLifetime secs gstate = gstate { projectiles = map (updateProjecti
 --   Implement bullet creation. [x]
 --   Add projectile movement. [x]
 --   Add projectile lifetime. [x]
---   Add firing cooldown and bullet limit.
+--   Add firing cooldown and bullet limit. [x]
 
 -- Asteroids:
 --   Implement asteroid data structures and movement.
 --   Add asteroid spawning.
---   Add asteroid screen wrapping.
+--   Add asteroid screen wrapping. 
 --   Implement asteroid destruction and splitting.
 
 -- Enemies:
@@ -282,7 +302,7 @@ fmapProjectilesLifetime secs gstate = gstate { projectiles = map (updateProjecti
 --   Add saucer spawning.
 
 -- Game mechanics:
---   Implement collision detection. [O]
+--   Implement collision detection. [o]
 --   Implement collision responses. [o]
 --   Add scoring.
 --   Add difficulty progression.
