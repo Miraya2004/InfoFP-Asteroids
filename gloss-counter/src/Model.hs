@@ -3,6 +3,7 @@
 module Model where
 import Data.Vector2
 import Graphics.Gloss.Interface.IO.Game
+import System.Random
 
 data InfoToShow = ShowNothing
                 | ShowANumber Int
@@ -58,10 +59,11 @@ data GameState = GameState {
                  , score :: Int
                  , projectiles :: [Projectile]
                  , heldKeys :: [Key]
+                 , randomGenerator :: StdGen
                  }
 
-initialState :: GameState
-initialState = GameState ShowNothing 0 (Just initialPlayer) [] Playing 0 [] []
+initialState :: StdGen -> GameState
+initialState gen = GameState ShowNothing 0 (Just initialPlayer) [] Playing 0 [] [] gen
 
 initialPlayer :: Player
 initialPlayer = Player

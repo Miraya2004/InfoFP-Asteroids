@@ -15,12 +15,15 @@ step :: Float -> GameState -> IO GameState
 step secs gstate
     | screenState gstate == Paused = return gstate
     | otherwise = return $
+        
+        (checkPlayerCollisions
         (removeExpiredProjectiles
             (fmapProjectilesLifetime secs
                 (applyProjectileMovement secs
-                    (applyMovement secs
-                        (applyDeceleration secs
-                            (useHeldKeys secs gstate))))))
+                    (applyEnemyMovement secs
+                        (applyMovement secs
+                            (applyDeceleration secs
+                                (useHeldKeys secs gstate))))))))
         { elapsedTime = elapsedTime gstate + secs }
 
 -- Apply everything in step
@@ -208,10 +211,11 @@ enemyProjectileHit player projectile = -5 < x && x < 5 && -5 < y && y < 5
 
 playerProjectileHit :: Enemy -> Projectile -> Bool
 playerProjectileHit (Aster(asteroid)) projectile = asteroidCollider (projPosition projectile) asteroid
+--playerProjectileHit (Sauce(saucer)) projectile = saucerCollider (projPosition projectile) saucer
 
 playerEnemyHit :: Player -> Enemy -> Bool
 playerEnemyHit player (Aster(asteroid)) = asteroidCollider (playerPosition player) asteroid
-
+--playerEnemyHit player (Sauce(saucer)) = saucerCollider (playerPosition player) asteroid
 
 
 --Player Hits Functions
@@ -252,10 +256,75 @@ moveAsteroid secs asteroid =
         position = Position (x + vx * secs, y + vy * secs)
         newPosition = wrapPosition position
 
+spawnInitAsteroid :: StdGen -> (Asteroid, StdGen)
+spawnInitAsteroid gen = 
+    let minCoord = -1 * maxCoord
+        maxCoord = if side < 2 then 300 else 400
+        
+        (side, gen1) = randomR (0, 3 :: Int ) gen
+        (coordinate, gen2) = randomR (minCoord, maxCoord) gen1
+        (angle, gen3) = randomR (0, 2*pi) gen2
+        (speed, gen4) = randomR (20, 40) gen3
 
+        position = case side of 
+            0 -> Position(-400, coordinate)
+            1 -> Position(400, coordinate)
+            2 -> Position(coordinate, 300)
+            3 -> Position(coordinate, -300)
+        direction = vector2 (cos angle) (sin angle)
 
+        asteroid = Asteroid{asteroidPosition = position, asteroidSize = 3 , asteroidSpeed = speed *^ direction}
+    in (asteroid, gen4)
 
+splitAsteroid :: Asteroid -> [Asteroid]
+splitAsteroid asteroid | asteroidSize asteroid <= 1 = []
+                       | otherwise = 
+                            [createSplit (-pi / 4), createSplit (pi / 4)]
+                        where 
+                            (vx, vy) = vector2XY (asteroidSpeed asteroid)
 
+                            createSplit angle = 
+                                Asteroid 
+                                    { asteroidPosition = asteroidPosition asteroid
+                                    , asteroidSpeed = vector2 (vx * cos angle - vy * sin angle) (vx * sin angle + vy * cos angle)
+                                    , asteroidSize = asteroidSize asteroid -1 }
+
+checkAsteroidCollisions :: GameState -> GameState
+checkAsteroidCollisions gstate = 
+    let newState = gstate { enemies = concatMap updateEnemy (enemies gstate)
+                          , projectiles = remainingProjectiles}
+    in if playerWasHit 
+        then destroyPlayer newState
+        else newState
+    where                     
+        updateEnemy (Aster asteroid)
+            | projectileHit asteroid = map Aster (splitAsteroid asteroid)
+            | saucerHit asteroid = []
+            | playerHit asteroid = []
+            | otherwise = [Aster asteroid]
+        
+        updateEnemy enemy@(Sauce _) = [enemy]
+        
+        projectileHit asteroid = any (\projectile -> playerProjectileHit (Aster asteroid) projectile) (projectiles gstate)
+        saucerHit asteroid = any (\enemy -> case enemy of 
+                                            Sauce saucer -> asteroidCollider (saucserPosition saucer) asteroid
+                                            _ -> False) (enemies gstate)
+        playerHit asteroid =
+            case player gstate of 
+                Nothing -> False 
+                Just p -> playerEnemyHit p (Aster asteroid)
+        playerWasHit =
+            case player gstate of
+                Nothing -> False
+                Just p -> any (playerEnemyHit p) asteroidEnemies
+        
+        asteroidEnemies = [Aster asteroid | Aster asteroid <- enemies gstate]
+        
+        remainingProjectiles = filter (not . projectileHitAsteroid) (projectiles gstate)
+
+        projectileHitAsteroid projectile = any (\enemy -> case enemy of
+                                                    Aster asteroid -> playerProjectileHit (Aster asteroid) projectile
+                                                    _ -> False) (enemies gstate)
 
 
 --Helper functions
@@ -291,10 +360,10 @@ fmapProjectilesLifetime secs gstate = gstate { projectiles = map (updateProjecti
 --   Add firing cooldown and bullet limit. [x]
 
 -- Asteroids:
---   Implement asteroid data structures and movement.
---   Add asteroid spawning.
---   Add asteroid screen wrapping. 
---   Implement asteroid destruction and splitting.
+--   Implement asteroid data structures and movement. [x]
+--   Add asteroid spawning. [x]
+--   Add asteroid screen wrapping. [x] 
+--   Implement asteroid destruction and splitting. [x]
 
 -- Enemies:
 --   Implement enemy saucers.
