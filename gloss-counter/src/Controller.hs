@@ -89,10 +89,14 @@ turnPlayer secs direction player = player { playerRotation = Rotation (resAngle)
                                                  | otherwise = newAngle
 
 shootBullet :: GameState -> GameState
-shootBullet gstate = 
-    case player gstate of
-        Nothing -> gstate
-        Just p  -> gstate { projectiles = createPlayerProjectile p : projectiles gstate}
+shootBullet gstate | length playerBullets >= 4 = gstate
+                   | otherwise = 
+                        case player gstate of
+                            Nothing -> gstate
+                            Just p  -> gstate { projectiles = createPlayerProjectile p : projectiles gstate}
+                    where 
+                        playerBullets = filter (not . enemy) (projectiles gstate)
+
 
 -- Add Projectile to gstate with Players rotation and position, with a set speed. Check for 4 bullets to stop shooting.
 
@@ -105,7 +109,7 @@ createPlayerProjectile p = Proj{ enemy = False, projPosition = playerPosition p 
             bulletLifetime = 2.0
 
 createSmartProjectile :: Position -> Position -> Projectile
-createSmartProjectile enemyPosision playerPosition = Proj { enemy = True, projPosition = enemyPosision, projSpeed = bulletSpeed *^ direction, lifetime = bulletLifetime}
+createSmartProjectile enemyPosition playerPosition = Proj { enemy = True, projPosition = enemyPosition, projSpeed = bulletSpeed *^ direction, lifetime = bulletLifetime}
     where 
         dx = firstPos playerPosition - firstPos enemyPosition
         dy = secondPos playerPosition - secondPos enemyPosition
@@ -115,12 +119,12 @@ createSmartProjectile enemyPosision playerPosition = Proj { enemy = True, projPo
         bulletLifetime = 2.0
 
 createRandomProjectile :: Position -> StdGen -> (Projectile, StdGen)
-createSmartProjectile enemyPosision gen = 
+createRandomProjectile enemyPosition gen = 
     let (angle, newGen) = randomR (0, 2 * pi) gen
         direction = vector2 (cos angle) (sin angle)
         bulletSpeed = 400
         bulletLifetime = 2.0
-        projectile = Proj{ enemy = True, projPosition = enemyPosision, projSpeed = bulletSpeed *^ direction, lifetime = bulletLifetime }
+        projectile = Proj{ enemy = True, projPosition = enemyPosition, projSpeed = bulletSpeed *^ direction, lifetime = bulletLifetime }
     in (projectile, newGen)
 
 moveProjectile :: Float -> Projectile -> Projectile
@@ -261,9 +265,9 @@ fmapProjectilesLifetime secs gstate = gstate { projectiles = map (updateProjecti
 --   Add player destruction. [x]
 
 -- Projectiles:
---   Implement bullet creation.
---   Add projectile movement.
---   Add projectile lifetime.
+--   Implement bullet creation. [x]
+--   Add projectile movement. [x]
+--   Add projectile lifetime. [x]
 --   Add firing cooldown and bullet limit.
 
 -- Asteroids:
