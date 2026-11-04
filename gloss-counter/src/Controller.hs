@@ -120,11 +120,11 @@ wrapPosition position = Position (newX, newY)
             where 
                 newX = wrapX (firstPos position)
                 newY = wrapY (secondPos position) 
-                wrapX x | x < 0 = x + 800
-                        | x > 800 = x - 800
+                wrapX x | x < -400 = x + 800
+                        | x > 400 = x - 800
                         | otherwise = x
-                wrapY y | y < 0 = y + 600
-                        | y > 600 = y - 600
+                wrapY y | y < -300 = y + 600
+                        | y > 300 = y - 600
                         | otherwise = y
 
 asteroidCollider :: Position -> Asteroid -> Bool
