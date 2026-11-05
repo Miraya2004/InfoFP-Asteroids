@@ -355,7 +355,8 @@ splitAsteroid asteroid | asteroidSize asteroid <= 1 = []
 checkEnemyCollisions :: GameState -> GameState
 checkEnemyCollisions gstate = 
     let newState = gstate { enemies = concatMap updateEnemy (enemies gstate)
-                          , projectiles = remainingProjectiles}
+                          , projectiles = remainingProjectiles
+                          , score = score gstate + scoreGained}
     in if playerWasHit 
         then destroyPlayer newState
         else newState
@@ -405,6 +406,14 @@ checkEnemyCollisions gstate =
                                                             Aster _ -> playerProjectileHit enemy projectile
                                                             Sauce _ -> False) (enemies gstate)
                                       | otherwise = any (\enemy -> playerProjectileHit enemy projectile) (enemies gstate)
+
+        scoreGained = sum (map enemyScore (enemies gstate))
+
+        enemyScore (Aster asteroid) | projectileHitAsteroid asteroid = asteroidPoints asteroid
+                                    | otherwise = 0
+
+        enemyScore (Sauce saucer)   | projectileHitSaucer saucer = saucerPoints saucer
+                                    | otherwise = 0
 
 --Saucer functions
 spawnSaucer :: StdGen -> (Saucer, StdGen)
@@ -495,7 +504,19 @@ removeSaucers gstate = gstate { enemies = filter keepEnemy (enemies gstate)}
                 x <= 400 && x >= -400
 
 
+--Points
+asteroidPoints :: Asteroid -> Int
+asteroidPoints asteroid = case asteroidSize asteroid of
+    3 -> 20
+    2 -> 50
+    1 -> 100
+    _ -> 0
 
+saucerPoints :: Saucer -> Int
+saucerPoints saucer = case saucerSize saucer of
+    2 -> 200
+    1 -> 100
+    _ -> 0
 
 --Helper functions
 
