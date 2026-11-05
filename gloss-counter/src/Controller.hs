@@ -4,6 +4,11 @@ module Controller where
 
 import Model
 
+import System.Directory
+
+import Text.Read(readMaybe)
+import Data.Maybe
+import System.IO
 import Graphics.Gloss
 import Graphics.Gloss.Interface.IO.Game
 import System.Random
@@ -15,24 +20,25 @@ import Data.List (mapAccumL)
 step :: Float -> GameState -> IO GameState
 step secs gstate
     | screenState gstate == Paused = return gstate
-    | otherwise = return $
-        (checkEnemyCollisions
-            (checkPlayerCollisions
-                (updatePlayerRespawnTimer secs
-                    (removeExpiredProjectiles
-                        (fmapProjectilesLifetime secs
-                            (applySaucerShooting secs
-                                (applyProjectileMovement secs
-                                    (removeSaucers
-                                        (applyEnemyMovement secs
-                                            (applySaucerDirections secs
-                                                (applyMovement secs
-                                                    (applyDeceleration secs
-                                                        (useHeldKeys secs
-                                                            (updateBulletCooldown secs
-                                                                (periodicSpawner secs
-                                                                    (spawnAsteroids gstate))))))))))))))))
-        { elapsedTime = elapsedTime gstate + secs }
+    | otherwise = 
+        (gameOver
+            ((checkEnemyCollisions
+                (checkPlayerCollisions
+                    (updatePlayerRespawnTimer secs
+                        (removeExpiredProjectiles
+                            (fmapProjectilesLifetime secs
+                                (applySaucerShooting secs
+                                    (applyProjectileMovement secs
+                                        (removeSaucers
+                                            (applyEnemyMovement secs
+                                                (applySaucerDirections secs
+                                                    (applyMovement secs
+                                                        (applyDeceleration secs
+                                                            (useHeldKeys secs
+                                                                (updateBulletCooldown secs
+                                                                    (periodicSpawner secs
+                                                                        (spawnAsteroids gstate))))))))))))))))
+        { elapsedTime = elapsedTime gstate + secs }))
 
 -- Apply everything in step
 
@@ -125,6 +131,12 @@ useKey secs gstate (SpecialKey KeySpace) = shootBullet gstate
 useKey secs gstate (SpecialKey KeyLeft) = gstate { player = fmap (turnPlayer secs DirLeft) (player gstate) }
 useKey secs gstate (SpecialKey KeyUp) = gstate { player = fmap (acceleratePlayer secs) (player gstate)}
 useKey secs gstate (SpecialKey KeyRight) = gstate { player = fmap (turnPlayer secs DirRight) (player gstate)}
+
+useKey secs gstate (Char 'C') | screenState gstate == GameOver = gstate {player = Just initialPlayer, screenState = Playing}
+useKey secs gstate (Char 'c') = useKey secs gstate (Char 'R')
+useKey secs gstate (Char 'R') | screenState gstate == GameOver = initialState (randomGenerator gstate)
+useKey secs gstate (Char 'r') = useKey secs gstate (Char 'R')
+
 
 useKey secs gstate _ = gstate
 
@@ -566,7 +578,20 @@ wrappedDifference screenSize a b
         difference = a - b
         halfScreen = screenSize / 2
 
-
+gameOver :: GameState -> IO GameState
+gameOver gstate
+        | isNothing (player gstate)  && (screenState gstate) == Playing  = populateHighScore $ gstate
+        | otherwise                                                      = return gstate
+                                                                                                        
+populateHighScore :: GameState -> IO GameState
+populateHighScore gstate = do
+                            fileExists <- doesFileExist "scores.bin"
+                            fileData <- if fileExists then readFile "scores.bin" else return ""
+                            oldScore <- return $ (fromMaybe (0) . readMaybe) (fileData)
+                            highScore <- return (if oldScore < newScore then newScore else oldScore)
+                            writeFile "scores.bin" (show highScore)
+                            return $ gstate {highestScore = Just highScore, screenState = GameOver}
+                                where GameState{score = newScore} = gstate
 
 
 

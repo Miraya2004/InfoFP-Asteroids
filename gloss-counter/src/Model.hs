@@ -12,7 +12,7 @@ data InfoToShow = ShowNothing
 data Position = Position (Float, Float) 
                   deriving Show
 
-data ScreenState = Playing | Paused | Menu
+data ScreenState = Playing | Paused | Menu | GameOver
                     deriving Eq
 data Projectile = Proj{
   enemy :: Bool
@@ -62,10 +62,11 @@ data GameState = GameState {
                  , randomGenerator :: StdGen
                  , bulletCooldown :: Float
                  , playerRespawn :: Float
+                 , highestScore :: Maybe Int
                  }
 
 initialState :: StdGen -> GameState
-initialState gen = GameState ShowNothing 0 (Just initialPlayer) [] Playing 0 [] [] gen 0 0
+initialState gen = GameState ShowNothing 0 (Just initialPlayer) [] Playing 0 [] [] gen 0 0 (Just 0)
 
 initialPlayer :: Player
 initialPlayer = Player
