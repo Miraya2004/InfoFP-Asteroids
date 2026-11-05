@@ -511,7 +511,14 @@ periodicSpawner secs gstate
             gstate { enemies = Sauce saucer : enemies gstate, randomGenerator = newGen}
     | otherwise = gstate
     where
-        spawnCycleTime = 10
+        s = score gstate
+        spawnCycleTime | s < 1000   = 60
+                       | s < 5000   = 45
+                       | s < 10000  = 30
+                       | s < 20000  = 25
+                       | s < 50000  = 20
+                       | s < 100000 = 10
+                       | otherwise  = 5
         oldTime = elapsedTime gstate
         newTime = oldTime + secs
 
