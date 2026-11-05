@@ -440,12 +440,12 @@ checkEnemyCollisions gstate =
                                     | otherwise = 0
 
 --Saucer functions
-spawnSaucer :: StdGen -> (Saucer, StdGen)
-spawnSaucer gen =
+spawnSaucer :: StdGen -> Int -> (Saucer, StdGen)
+spawnSaucer gen score =
     let
         (side, gen1) = randomR (0, 1 :: Int) gen
         (randY, gen2) = randomR (-280, 280) gen1
-        (size, gen3) = randomR (1, 2 :: Int) gen2
+        (sizeOdds, gen3) = randomR (1, 100 :: Int) gen2
         (speed_, gen4) = randomR (30, 60) gen3
         cooldown = 1.5
         angle = 0
@@ -454,12 +454,22 @@ spawnSaucer gen =
         x = if side == 0 then -400 else 400
         position = Position (x, randY)
         speed = vector2 (direction * speed_ * cos angle) 0
+        size | score < 2000  = 2
+             | score < 5000  = if sizeOdds <= 25 then 1 else 2
+             | score < 10000 = if sizeOdds <= 50 then 1 else 2
+             | score < 20000 = if sizeOdds <= 75 then 1 else 2
+             | otherwise = 1
+
+             
+             
 
         saucer = Saucer{ saucerPosition = position
         , saucerSpeed = speed 
         , saucerSize = size
         , saucerShootingCooldown = cooldown
         }
+
+        
     in 
         (saucer, gen4)
 
@@ -492,7 +502,7 @@ periodicSpawner :: Float -> GameState -> GameState
 periodicSpawner secs gstate 
     | floor (newTime / spawnCycleTime) > floor (oldTime / spawnCycleTime) = 
         let 
-            (saucer, newGen) = spawnSaucer (randomGenerator gstate)
+            (saucer, newGen) = spawnSaucer (randomGenerator gstate) (score gstate)
         in 
             gstate { enemies = Sauce saucer : enemies gstate, randomGenerator = newGen}
     | otherwise = gstate
@@ -610,7 +620,7 @@ populateHighScore gstate = do
 --   Implement collision detection. [x] 
 --   Implement collision responses. [x]
 --   Add scoring. [x]
---   Add difficulty progression.
+--   Add difficulty progression. [x]
 
 -- Game flow:
 --   Add game over state.
