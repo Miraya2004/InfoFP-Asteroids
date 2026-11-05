@@ -28,8 +28,9 @@ step secs gstate
                                             (applyMovement secs
                                                 (applyDeceleration secs
                                                     (useHeldKeys secs
-                                                        (periodicSpawner secs
-                                                            (spawnAsteroids gstate))))))))))))))
+                                                        (updateBulletCooldown secs
+                                                            (periodicSpawner secs
+                                                                (spawnAsteroids gstate)))))))))))))))
         { elapsedTime = elapsedTime gstate + secs }
 
 -- Apply everything in step
@@ -144,7 +145,7 @@ shootBullet gstate | bulletCooldown gstate > 0 = gstate
                    | otherwise = 
                         case player gstate of
                             Nothing -> gstate
-                            Just p  -> gstate { projectiles = createPlayerProjectile p : projectiles gstate}
+                            Just p  -> gstate { projectiles = createPlayerProjectile p : projectiles gstate, bulletCooldown = 0.25}
                     where 
                         playerBullets = filter (not . enemy) (projectiles gstate)
 
