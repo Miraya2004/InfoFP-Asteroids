@@ -22,11 +22,13 @@ step secs gstate
                     (fmapProjectilesLifetime secs
                         (applySaucerShooting secs
                             (applyProjectileMovement secs
-                                (applyEnemyMovement secs
-                                    (applyMovement secs
-                                        (applyDeceleration secs
-                                            (useHeldKeys secs
-                                                (periodicSpawner secs gstate)))))))))))
+                                (removeSaucers
+                                    (applyEnemyMovement secs
+                                        (applySaucerDirections secs
+                                            (applyMovement secs
+                                                (applyDeceleration secs
+                                                    (useHeldKeys secs
+                                                        (periodicSpawner secs gstate)))))))))))))
         { elapsedTime = elapsedTime gstate + secs }
 
 -- Apply everything in step
@@ -69,6 +71,17 @@ applySaucerShooting secs gstate =
                 (newSaucer, projectile, newGen) = updateSaucerFiring secs (player gstate) saucer gen
             in  
                 (newGen, (Sauce newSaucer, projectile))
+
+applySaucerDirections :: Float -> GameState -> GameState
+applySaucerDirections secs gstate =
+    let 
+        (newGen, newEnemies) = mapAccumL changeEnemyDir (randomGenerator gstate) (enemies gstate)
+        changeEnemyDir gen (Aster asteroid) = (gen, Aster asteroid)
+        changeEnemyDir gen (Sauce saucer)   = 
+            let (newSaucer, newGen) = changeSaucerDirection secs saucer gen
+            in  (newGen, Sauce newSaucer)
+    in
+        gstate { enemies = newEnemies, randomGenerator = newGen}
 
 -- | Handle user input
 input :: Event -> GameState -> IO GameState
@@ -414,6 +427,35 @@ periodicSpawner secs gstate
         oldTime = elapsedTime gstate
         newTime = oldTime + secs
 
+changeSaucerDirection :: Float -> Saucer -> StdGen -> (Saucer, StdGen)
+changeSaucerDirection secs saucer gen = 
+    let
+        (vx, vy) = vector2XY (saucerSpeed saucer)
+        speed = sqrt (vx * vx + vy * vy)
+        direction = if vx >= 0 then 1 else -1
+        changeChance = 1 + (1 - 0.05) ** secs
+        (roll, gen1) = randomR (0.0, 1.0) gen
+
+        (angle, gen2) = if roll < changeChance then
+                            let (index, g2) = randomR (0, 2 :: Int) gen1
+                            in ([0, pi/6, -pi/6] !! index, g2)
+                        else (atan2 vy (abs vx), gen1)
+        newSpeed = vector2 (direction * speed * cos angle) (speed * sin angle)
+    in (saucer {saucerSpeed = newSpeed}, gen2)
+
+removeSaucers :: GameState -> GameState
+removeSaucers gstate = gstate { enemies = filter keepEnemy (enemies gstate)}
+    where
+        keepEnemy (Aster _) = True
+        keepEnemy (Sauce saucer) = 
+            let 
+                Position (x, _) = saucerPosition saucer
+            in
+                x > 400 || x < -400
+
+
+
+
 --Helper functions
 
 firstPos :: Position -> Float
@@ -437,7 +479,7 @@ fmapProjectilesLifetime secs gstate = gstate { projectiles = map (updateProjecti
 -- TODO:
 -- Player:
 --   Add screen wrapping. [x]
---   Add player lives and respawning. [x] (TODO respawnInvuln)
+--   Add player lives and respawning. [o] (TODO respawnInvuln)
 --   Add player destruction. [x]
 
 -- Projectiles:
@@ -454,11 +496,12 @@ fmapProjectilesLifetime secs gstate = gstate { projectiles = map (updateProjecti
 
 -- Enemies:
 --   Implement enemy saucers. [x]
---   Add saucer movement and behaviour. [o]
+--   Add saucer movement and behaviour. [x]
 --   Add saucer spawning. [x]
+--   Remove saucer crossing border [x]
 
 -- Game mechanics:
---   Implement collision detection. [o]
+--   Implement collision detection. [o] (I think its done? there are probably still interactions i forgot about.... Saucers still need a size probably)
 --   Implement collision responses. [o]
 --   Add scoring.
 --   Add difficulty progression.
