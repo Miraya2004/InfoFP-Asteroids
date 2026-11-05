@@ -28,7 +28,8 @@ step secs gstate
                                             (applyMovement secs
                                                 (applyDeceleration secs
                                                     (useHeldKeys secs
-                                                        (periodicSpawner secs gstate)))))))))))))
+                                                        (periodicSpawner secs
+                                                            (spawnAsteroids gstate))))))))))))))
         { elapsedTime = elapsedTime gstate + secs }
 
 -- Apply everything in step
@@ -83,6 +84,15 @@ applySaucerDirections secs gstate =
     in
         gstate { enemies = newEnemies, randomGenerator = newGen}
 
+spawnAsteroids :: GameState -> GameState
+spawnAsteroids gstate | null (enemies gstate) = 
+                        let 
+                            (asteroid1, gen1) = spawnInitAsteroid (randomGenerator gstate)
+                            (asteroid2, gen2) = spawnInitAsteroid gen1
+                            (asteroid3, gen3) = spawnInitAsteroid gen2
+                            (asteroid4, gen4) = spawnInitAsteroid gen3
+                        in  gstate {enemies = map Aster [asteroid1, asteroid2, asteroid3, asteroid4], randomGenerator = gen4}
+                      | otherwise = gstate
 -- | Handle user input
 input :: Event -> GameState -> IO GameState
 input e gstate = return (inputKey e gstate)
@@ -352,7 +362,7 @@ checkEnemyCollisions gstate =
         
         updateEnemy (Sauce saucer) 
             | asteroidHitSaucer saucer = []
-            | projectileHitSaucer saucer = []
+            | projectileHitSaucer saucer = [Sauce saucer]
             | playerHitSaucer saucer = []
             | otherwise = [Sauce saucer]
         --Asteroids
@@ -371,7 +381,7 @@ checkEnemyCollisions gstate =
                                         Aster asteroid -> asteroidCollider (saucerPosition saucer) asteroid 
                                         _ -> False ) (enemies gstate)
 
-        projectileHitSaucer saucer = any (\projectile -> playerProjectileHit (Sauce saucer) projectile) (projectiles gstate)
+        projectileHitSaucer saucer = any (\projectile -> not (enemy projectile) && playerProjectileHit (Sauce saucer) projectile) (projectiles gstate)
 
         playerHitSaucer saucer = 
             case player gstate of
@@ -385,8 +395,10 @@ checkEnemyCollisions gstate =
         
         remainingProjectiles = filter (not . projectileHitEnemy) (projectiles gstate)
 
-        projectileHitEnemy projectile = any (\enemy -> playerProjectileHit enemy projectile) (enemies gstate)
-
+        projectileHitEnemy projectile | (enemy projectile) = any (\enemy -> case enemy of 
+                                                            Aster _ -> playerProjectileHit enemy projectile
+                                                            Sauce _ -> False) (enemies gstate)
+                                      | otherwise = any (\enemy -> playerProjectileHit enemy projectile) (enemies gstate)
 
 --Saucer functions
 spawnSaucer :: StdGen -> (Saucer, StdGen)
