@@ -589,8 +589,8 @@ gameOver gstate
                                                                                                         
 populateHighScore :: GameState -> IO GameState
 populateHighScore gstate = do
-                            fileExists <- doesFileExist "scores.bin"
-                            fileData <- if fileExists then S.readFile "scores.bin" else return ""
+                            fileExists <- doesFileExist "highscore.bin"
+                            fileData <- if fileExists then S.readFile "highscore.bin" else return ""
                             oldScore <- return $ (fromMaybe (0) . readMaybe) (fileData)
                             highScore <- return (if oldScore < newScore then newScore else oldScore)
                             writeFile "scores.bin" (show highScore)

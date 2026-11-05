@@ -10,7 +10,7 @@ import System.Random
 main :: IO ()
 main = do 
     gen <- newStdGen
-    playIO (InWindow "Counter" (800, 600) (0, 0)) -- Or FullScreen
+    playIO (InWindow "Asteroids" (800, 600) (0, 0)) -- Or FullScreen
               black                 -- Background color
               30                    -- Frames per second
               (initialState gen)    -- Initial state
