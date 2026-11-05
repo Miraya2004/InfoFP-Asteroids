@@ -23,6 +23,25 @@ saucerSprite = Scale 2 2 $ Line [(-3,2),(3,2),(4,0),(-4,0),(-3,2),(-4,0),(-5,0),
 asteroidSprites = Line [(-5,0), (0,5), (5, 0), (0, -5), (-5, 0)]
 
 
+
+
+renderScore :: Int -> Picture
+renderScore score = Color white $ Scale 0.25 0.25 $ Text $ show score
+
+renderLives :: Maybe Player -> Picture
+renderLives (Just Player{lives = n}) = Color red $ live n
+
+                                          where live 0 = Blank
+                                                live n = Pictures [ThickCircle 5 5, Translate 15 0 $ live (n-1)]
+                                                
+renderLives Nothing = Blank
+
+renderUI :: GameState -> Picture
+renderUI GameState {score = score, player = player} = Translate (negate 370) (250) $ Pictures [
+                                                            renderScore score,
+                                                            Translate 0 (negate 10) $ renderLives player
+                                                      ]
+
 renderProjectiles :: GameState -> Picture
 renderProjectiles GameState {projectiles = p} = Pictures $ map renderProjectile p
 
@@ -35,7 +54,7 @@ view ::GameState -> IO Picture
 view = return . viewPure
 
 viewPure :: GameState -> Picture
-viewPure gstate = Color white $ Pictures [renderShip gstate, renderEnemies gstate, renderProjectiles gstate ]
+viewPure gstate = Color white $ Pictures [renderShip gstate, renderEnemies gstate, renderProjectiles gstate, renderUI gstate]
 
 renderEnemies :: GameState -> Picture
 renderEnemies GameState{enemies = e} = Pictures $
