@@ -36,11 +36,16 @@ renderLives (Just Player{lives = n}) = Color red $ live n
 renderLives Nothing = Blank
 
 renderUI :: GameState -> Picture
-renderUI GameState {score = score, player = player, highestScore = highestScore} = Translate (negate 370) (250) $ Pictures [
+renderUI GameState {score = score, player = player, highestScore = highestScore, screenState = screenState} = Translate (negate 370) (250) $ Pictures [
                                                             renderScore score,
                                                             Translate 0 (negate 10) $ renderLives player,
-                                                            renderEndScreen player score (fromMaybe 0 highestScore)
+                                                            renderEndScreen player score (fromMaybe 0 highestScore),
+                                                            renderResume screenState
                                                       ]
+
+renderResume :: ScreenState -> Picture
+renderResume Paused = Color white $ Translate (negate 0) (negate 400)     $ Scale 0.5 0.5 $ Text "Press P to resume"
+renderResume _      = Blank
 
 renderEndScreen :: Maybe Player -> Int -> Int -> Picture
 renderEndScreen (Just _) _ _ = blank
