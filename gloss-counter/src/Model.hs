@@ -34,6 +34,7 @@ data Asteroid = Asteroid {
   asteroidPosition :: Position
 , asteroidSpeed :: Vector2 Float
 , asteroidSize :: Int
+, asteroidLifetime :: Float
 }
 
 data Player = Player {

@@ -13,7 +13,8 @@ executable gloss-counter
                        gloss,
                        random,
                        simple-affine-space,
-                       directory
+                       directory,
+                       strict
   hs-source-dirs:      src
   other-modules:       Controller
                      , Model

@@ -24,7 +24,6 @@ asteroidSprites = Line [(-5,0), (0,5), (5, 0), (0, -5), (-5, 0)]
 
 
 
-
 renderScore :: Int -> Picture
 renderScore score = Color white $ Scale 0.25 0.25 $ Text $ show score
 
@@ -37,18 +36,20 @@ renderLives (Just Player{lives = n}) = Color red $ live n
 renderLives Nothing = Blank
 
 renderUI :: GameState -> Picture
-renderUI GameState {score = score, player = player} = Translate (negate 370) (250) $ Pictures [
+renderUI GameState {score = score, player = player, highestScore = highestScore} = Translate (negate 370) (250) $ Pictures [
                                                             renderScore score,
                                                             Translate 0 (negate 10) $ renderLives player,
-                                                            renderEndScreen player
+                                                            renderEndScreen player score (fromMaybe 0 highestScore)
                                                       ]
 
-renderEndScreen :: Maybe Player -> Picture
-renderEndScreen (Just _) = Blank
-renderEndScreen Nothing  = Pictures [
+renderEndScreen :: Maybe Player -> Int -> Int -> Picture
+renderEndScreen (Just _) _ _ = blank
+renderEndScreen Nothing score highest = Pictures [
                                 Color white $ Translate (negate 25) (negate 100) $ Scale 1 1       $ Text "GAME OVER",
-                                Color orange $ Translate (negate 0) (negate 200)     $ Scale 0.5 0.5 $ Text "Press C to continue",
-                                Color green $ Translate (negate 0) (negate 300)     $ Scale 0.5 0.5 $ Text "or R to restart"
+                                if highest <= score then Color white $ Translate (negate 0) (negate 300)     $ Scale 0.5 0.5 $ Text "NEW HIGH SCORE"
+                                else Color white $ Translate (negate 0) (negate 300)     $ Scale 0.5 0.5 $ Text ("HIGH SCORE:" ++ show highest),
+                                Color orange $ Translate (negate 0) (negate 400)     $ Scale 0.5 0.5 $ Text "Press C to continue",
+                                Color green $ Translate (negate 0) (negate 500)     $ Scale 0.5 0.5 $ Text "or R to restart"
                               ]
 
 renderProjectiles :: GameState -> Picture
@@ -99,7 +100,8 @@ renderAsteroids :: [Asteroid] -> [Picture]
 renderAsteroids (a:as) = renderAsteroid a : renderAsteroids as
 renderAsteroids [] = []
 
-renderAsteroid Asteroid{asteroidPosition = Position (x,y), asteroidSize = sizeTier} =  Translate x (negate y) $ Scale size size $ asteroidSprites
+renderAsteroid Asteroid{asteroidPosition = Position (x,y), asteroidSize = sizeTier, asteroidLifetime = t} | sizeTier > 0  =  Translate x (negate y) $ Scale size size $ asteroidSprites
+                                                                                                          | sizeTier == 0 = Translate x (negate y) $ ThickCircle (3 - t / 50) (3 - t/100)
     where size = fromIntegral sizeTier
 
 

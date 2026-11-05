@@ -9,6 +9,7 @@ import System.Directory
 import Text.Read(readMaybe)
 import Data.Maybe
 import System.IO
+import qualified System.IO.Strict as S
 import Graphics.Gloss
 import Graphics.Gloss.Interface.IO.Game
 import System.Random
@@ -22,22 +23,23 @@ step secs gstate
     | screenState gstate == Paused = return gstate
     | otherwise = 
         (gameOver
-            ((checkEnemyCollisions
-                (checkPlayerCollisions
-                    (updatePlayerRespawnTimer secs
-                        (removeExpiredProjectiles
-                            (fmapProjectilesLifetime secs
-                                (applySaucerShooting secs
-                                    (applyProjectileMovement secs
-                                        (removeSaucers
-                                            (applyEnemyMovement secs
-                                                (applySaucerDirections secs
-                                                    (applyMovement secs
-                                                        (applyDeceleration secs
-                                                            (useHeldKeys secs
-                                                                (updateBulletCooldown secs
-                                                                    (periodicSpawner secs
-                                                                        (spawnAsteroids gstate))))))))))))))))
+            (updateDebris secs
+                ((checkEnemyCollisions
+                    (checkPlayerCollisions
+                        (updatePlayerRespawnTimer secs
+                            (removeExpiredProjectiles
+                                (fmapProjectilesLifetime secs
+                                    (applySaucerShooting secs
+                                        (applyProjectileMovement secs
+                                            (removeSaucers
+                                                (applyEnemyMovement secs
+                                                    (applySaucerDirections secs
+                                                        (applyMovement secs
+                                                            (applyDeceleration secs
+                                                                (useHeldKeys secs
+                                                                    (updateBulletCooldown secs
+                                                                        (periodicSpawner secs
+                                                                            (spawnAsteroids gstate)))))))))))))))))
         { elapsedTime = elapsedTime gstate + secs }))
 
 -- Apply everything in step
@@ -354,11 +356,12 @@ spawnInitAsteroid gen =
             3 -> Position(coordinate, -300)
         direction = vector2 (cos angle) (sin angle)
 
-        asteroid = Asteroid{asteroidPosition = position, asteroidSize = 3 , asteroidSpeed = speed *^ direction}
+        asteroid = Asteroid{asteroidPosition = position, asteroidSize = 3 , asteroidSpeed = speed *^ direction, asteroidLifetime = 0}
     in (asteroid, gen4)
 
 splitAsteroid :: Asteroid -> [Asteroid]
-splitAsteroid asteroid | asteroidSize asteroid <= 1 = []
+splitAsteroid asteroid | asteroidSize asteroid == 1 = [Asteroid {asteroidLifetime = 100, asteroidSize = 0, asteroidPosition = asteroidPosition asteroid, asteroidSpeed = asteroidSpeed asteroid}]
+                       | asteroidSize asteroid <= 0 = []
                        | otherwise = 
                             [createSplit (-pi / 4), createSplit (pi / 4)]
                         where 
@@ -368,7 +371,8 @@ splitAsteroid asteroid | asteroidSize asteroid <= 1 = []
                                 Asteroid 
                                     { asteroidPosition = asteroidPosition asteroid
                                     , asteroidSpeed = vector2 (vx * cos angle - vy * sin angle) (vx * sin angle + vy * cos angle)
-                                    , asteroidSize = asteroidSize asteroid -1 }
+                                    , asteroidSize = asteroidSize asteroid -1
+                                    , asteroidLifetime = 0 }
 
 checkEnemyCollisions :: GameState -> GameState
 checkEnemyCollisions gstate = 
@@ -507,7 +511,7 @@ periodicSpawner secs gstate
             gstate { enemies = Sauce saucer : enemies gstate, randomGenerator = newGen}
     | otherwise = gstate
     where
-        spawnCycleTime = 30
+        spawnCycleTime = 10
         oldTime = elapsedTime gstate
         newTime = oldTime + secs
 
@@ -579,7 +583,7 @@ gameOver gstate
 populateHighScore :: GameState -> IO GameState
 populateHighScore gstate = do
                             fileExists <- doesFileExist "scores.bin"
-                            fileData <- if fileExists then readFile "scores.bin" else return ""
+                            fileData <- if fileExists then S.readFile "scores.bin" else return ""
                             oldScore <- return $ (fromMaybe (0) . readMaybe) (fileData)
                             highScore <- return (if oldScore < newScore then newScore else oldScore)
                             writeFile "scores.bin" (show highScore)
@@ -587,9 +591,16 @@ populateHighScore gstate = do
                                 where GameState{score = newScore} = gstate
 
 
+updateDebris :: Float -> GameState -> GameState
+updateDebris s gstate = gstate {enemies = (map (changeDebrisLifetime (s - elapsedTime gstate))) . (filter isDeadAsteroid) . enemies $ gstate}
 
+isDeadAsteroid :: Enemy -> Bool
+isDeadAsteroid (Aster Asteroid{asteroidLifetime = lifetime,asteroidSize = size}) | lifetime <= 0 && size <= 0 = False
+                                                             | otherwise                          = True 
+isDeadAsteroid _                                                                                  = True
 
-
+changeDebrisLifetime s (Aster a) | asteroidSize a == 0 && asteroidLifetime a > 0 = Aster a {asteroidLifetime = asteroidLifetime a + s}
+changeDebrisLifetime _ x = x
 
 
 -- TODO:
