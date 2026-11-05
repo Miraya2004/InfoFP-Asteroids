@@ -3,6 +3,7 @@
 module Model where
 import Data.Vector2
 import Graphics.Gloss.Interface.IO.Game
+import System.Random
 
 data InfoToShow = ShowNothing
                 | ShowANumber Int
@@ -17,15 +18,16 @@ data Projectile = Proj{
   enemy :: Bool
 , projPosition :: Position
 , projSpeed :: Vector2 Float
-, lifetime :: Int
+, lifetime :: Float
 }
 
 data Enemy = Sauce Saucer | Aster Asteroid
 
 data Saucer = Saucer {
-  saucserPosition :: Position
+  saucerPosition :: Position
 , saucerSpeed :: Vector2 Float
 , saucerSize :: Int
+, saucerShootingCooldown :: Float
 }
 
 data Asteroid = Asteroid {
@@ -47,8 +49,6 @@ data Rotation = Rotation Float
 
 data Direction = DirLeft | DirRight
 
-nO_SECS_BETWEEN_CYCLES :: Float
-nO_SECS_BETWEEN_CYCLES = 5
 
 data GameState = GameState {
                    infoToShow  :: InfoToShow
@@ -59,10 +59,11 @@ data GameState = GameState {
                  , score :: Int
                  , projectiles :: [Projectile]
                  , heldKeys :: [Key]
+                 , randomGenerator :: StdGen
                  }
 
-initialState :: GameState
-initialState = GameState ShowNothing 0 (Just initialPlayer) [] Playing 0 [] []
+initialState :: StdGen -> GameState
+initialState gen = GameState ShowNothing 0 (Just initialPlayer) [] Playing 0 [] [] gen
 
 initialPlayer :: Player
 initialPlayer = Player
