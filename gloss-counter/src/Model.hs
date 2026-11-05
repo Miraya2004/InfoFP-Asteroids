@@ -42,6 +42,7 @@ data Player = Player {
 , playerRotation :: Rotation
 , bulletCount :: Int
 , lives :: Int
+, accelerating :: Bool
 }
 data Rotation = Rotation Float 
                   deriving Show
@@ -71,4 +72,5 @@ initialPlayer = Player
     , playerRotation = Rotation 0
     , bulletCount = 0
     , lives = 3
+    , accelerating = False
     }
