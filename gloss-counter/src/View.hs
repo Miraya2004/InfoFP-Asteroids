@@ -72,9 +72,7 @@ viewPure :: GameState -> Picture
 viewPure gstate = Color white $ Pictures [renderShip gstate, renderEnemies gstate, renderProjectiles gstate, renderUI gstate]
 
 renderEnemies :: GameState -> Picture
-renderEnemies GameState{enemies = e} = Pictures $
-      [Color white $ Text $ show $ length e] ++
-      map renderEnemy e
+renderEnemies GameState{enemies = e} = Pictures $ map renderEnemy e
 
 renderEnemy :: Enemy -> Picture
 renderEnemy (Aster a) = renderAsteroid a

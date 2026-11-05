@@ -259,8 +259,8 @@ wrapYPosition :: Position -> Position
 wrapYPosition position = Position (firstPos position, newY)
             where
                 newY = wrapY (secondPos position)
-                wrapY y | y < 0 = y + 600
-                        | y > 600 = y - 600
+                wrapY y | y < -300 = y + 600
+                        | y > 300 = y - 600
                         | otherwise = y
 
 -- Collisions functions 
