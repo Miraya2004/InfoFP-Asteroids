@@ -11,9 +11,9 @@ import Graphics.Gloss.Interface.IO.Interact
 
 
 shipStationary :: Picture
-shipStationary = Scale 3 3 $ Line [(0,5),(3,-5),(2,-4),(-2,-4),(-3,-5),(0,5)]
+shipStationary = Rotate 90 $ Scale 3 3 $ Line [(0,5),(3,-5),(2,-4),(-2,-4),(-3,-5),(0,5)]
 shipThruster :: Float -> Picture
-shipThruster t = Scale 3 3 $ Line [(2,-4), (0,(-6 - flameSize)), (-2,-4)]
+shipThruster t = Rotate 90 $ Scale 3 3 $ Line [(2,-4), (0,(-6 - flameSize)), (-2,-4)]
     where flameSize = cos $ fraction * 4 * pi
           fraction  = t - fromIntegral (floor t)
 
@@ -27,8 +27,8 @@ renderProjectiles :: GameState -> Picture
 renderProjectiles GameState {projectiles = p} = Pictures $ map renderProjectile p
 
 renderProjectile :: Projectile -> Picture
-renderProjectile Proj{projPosition = Position(x,y), enemy = evil} | evil      = Translate y x $ Color red $ Circle 3
-                                                                  | otherwise = Translate y x $ Color white $ Circle 3
+renderProjectile Proj{projPosition = Position(x,y), enemy = evil} | evil      = Translate x (negate y) $ Color red $ Circle 3
+                                                                  | otherwise = Translate x (negate y) $ Color white $ Circle 3
 
 
 view ::GameState -> IO Picture
@@ -55,7 +55,7 @@ renderSaucer Saucer {saucerPosition = Position (x,y), saucerSize = s}
 
 renderShip :: GameState -> Picture
 renderShip GameState {player = p, heldKeys = keys, elapsedTime = t} | isNothing p = Blank
-                                                                    | isJust p    = Translate y x $ Rotate (rad2deg rot) $ shipSprite accel t
+                                                                    | isJust p    = Translate x (negate y) $ Rotate (rad2deg rot) $ shipSprite accel t
                                 where Player {playerPosition = Position (x,y), playerRotation = Rotation rot} = fromMaybe initialPlayer p
                                       accel = elem (SpecialKey KeyUp) keys
 
@@ -71,7 +71,7 @@ renderAsteroids :: [Asteroid] -> [Picture]
 renderAsteroids (a:as) = renderAsteroid a : renderAsteroids as
 renderAsteroids [] = []
 
-renderAsteroid Asteroid{asteroidPosition = Position (x,y), asteroidSize = sizeTier} =  Translate y x $ Scale size size $ asteroidSprites
+renderAsteroid Asteroid{asteroidPosition = Position (x,y), asteroidSize = sizeTier} =  Translate x (negate y) $ Scale size size $ asteroidSprites
     where size = fromIntegral sizeTier
 
 
