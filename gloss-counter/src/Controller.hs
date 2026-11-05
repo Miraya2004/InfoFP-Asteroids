@@ -16,7 +16,7 @@ step :: Float -> GameState -> IO GameState
 step secs gstate
     | screenState gstate == Paused = return gstate
     | otherwise = return $
-        (checkAsteroidCollisions
+        (checkEnemyCollisions
             (checkPlayerCollisions
                 (removeExpiredProjectiles
                     (fmapProjectilesLifetime secs
@@ -239,8 +239,14 @@ asteroidCollider pos asteroid | asteroidSize asteroid == 3 = -30 < x && x < 30 &
                             where 
                               x = firstPos (asteroidPosition asteroid) - firstPos pos
                               y = secondPos (asteroidPosition asteroid) - secondPos pos
-                            
 
+saucerCollider :: Position -> Saucer -> Bool
+saucerCollider pos saucer | saucerSize saucer == 1 = -10 < x && x < 10 && -10 < y && y < 10
+                          | saucerSize saucer == 2 = -20 < x && x < 20 && -20 < y && y < 20
+                          | otherwise = False
+                          where
+                              x = firstPos (saucerPosition saucer) - firstPos pos
+                              y = secondPos (saucerPosition saucer) - secondPos pos
 enemyProjectileHit :: Player -> Projectile -> Bool
 enemyProjectileHit player projectile = -5 < x && x < 5 && -5 < y && y < 5
                                 where 
@@ -249,11 +255,11 @@ enemyProjectileHit player projectile = -5 < x && x < 5 && -5 < y && y < 5
 
 playerProjectileHit :: Enemy -> Projectile -> Bool
 playerProjectileHit (Aster(asteroid)) projectile = asteroidCollider (projPosition projectile) asteroid
---playerProjectileHit (Sauce(saucer)) projectile = saucerCollider (projPosition projectile) saucer
+playerProjectileHit (Sauce(saucer)) projectile = saucerCollider (projPosition projectile) saucer
 
 playerEnemyHit :: Player -> Enemy -> Bool
 playerEnemyHit player (Aster(asteroid)) = asteroidCollider (playerPosition player) asteroid
---playerEnemyHit player (Sauce(saucer)) = saucerCollider (playerPosition player) asteroid
+playerEnemyHit player (Sauce(saucer)) = saucerCollider (playerPosition player) saucer
 
 
 --Player Hits Functions
@@ -275,11 +281,11 @@ checkPlayerCollisions gstate =
     case player gstate of 
         Nothing -> gstate
         Just p -> 
-            if asteroidCollision p || projectileCollision p 
+            if playerCollision p || projectileCollision p 
                 then destroyPlayer gstate
                 else gstate
     where 
-        asteroidCollision p = any (playerEnemyHit p) [e | e@(Aster _) <- enemies gstate]
+        playerCollision p = any (playerEnemyHit p) (enemies gstate)
         projectileCollision p = any (enemyProjectileHit p) (filter enemy (projectiles gstate))
 
 -- Asteroid Functions
@@ -327,8 +333,8 @@ splitAsteroid asteroid | asteroidSize asteroid <= 1 = []
                                     , asteroidSpeed = vector2 (vx * cos angle - vy * sin angle) (vx * sin angle + vy * cos angle)
                                     , asteroidSize = asteroidSize asteroid -1 }
 
-checkAsteroidCollisions :: GameState -> GameState
-checkAsteroidCollisions gstate = 
+checkEnemyCollisions :: GameState -> GameState
+checkEnemyCollisions gstate = 
     let newState = gstate { enemies = concatMap updateEnemy (enemies gstate)
                           , projectiles = remainingProjectiles}
     in if playerWasHit 
@@ -336,33 +342,47 @@ checkAsteroidCollisions gstate =
         else newState
     where                     
         updateEnemy (Aster asteroid)
-            | projectileHit asteroid = map Aster (splitAsteroid asteroid)
-            | saucerHit asteroid = []
-            | playerHit asteroid = []
+            | projectileHitAsteroid asteroid = map Aster (splitAsteroid asteroid)
+            | saucerHitAsteroid asteroid = map Aster (splitAsteroid asteroid)
+            | playerHitAsteroid asteroid = map Aster (splitAsteroid asteroid)
             | otherwise = [Aster asteroid]
         
-        updateEnemy enemy@(Sauce _) = [enemy]
-        
-        projectileHit asteroid = any (\projectile -> playerProjectileHit (Aster asteroid) projectile) (projectiles gstate)
-        saucerHit asteroid = any (\enemy -> case enemy of 
+        updateEnemy (Sauce saucer) 
+            | asteroidHitSaucer saucer = []
+            | projectileHitSaucer saucer = []
+            | playerHitSaucer saucer = []
+            | otherwise = [Sauce saucer]
+        --Asteroids
+        projectileHitAsteroid asteroid = any (\projectile -> playerProjectileHit (Aster asteroid) projectile) (projectiles gstate)
+
+        saucerHitAsteroid asteroid = any (\enemy -> case enemy of 
                                             Sauce saucer -> asteroidCollider (saucerPosition saucer) asteroid
                                             _ -> False) (enemies gstate)
-        playerHit asteroid =
+
+        playerHitAsteroid asteroid =
             case player gstate of 
                 Nothing -> False 
                 Just p -> playerEnemyHit p (Aster asteroid)
+        --Saucers
+        asteroidHitSaucer saucer = any (\enemy -> case enemy of
+                                        Aster asteroid -> asteroidCollider (saucerPosition saucer) asteroid 
+                                        _ -> False ) (enemies gstate)
+
+        projectileHitSaucer saucer = any (\projectile -> playerProjectileHit (Sauce saucer) projectile) (projectiles gstate)
+
+        playerHitSaucer saucer = 
+            case player gstate of
+                Nothing -> False
+                Just p -> playerEnemyHit p (Sauce saucer)
+
         playerWasHit =
             case player gstate of
                 Nothing -> False
-                Just p -> any (playerEnemyHit p) asteroidEnemies
+                Just p -> any (playerEnemyHit p) (enemies gstate)
         
-        asteroidEnemies = [Aster asteroid | Aster asteroid <- enemies gstate]
-        
-        remainingProjectiles = filter (not . projectileHitAsteroid) (projectiles gstate)
+        remainingProjectiles = filter (not . projectileHitEnemy) (projectiles gstate)
 
-        projectileHitAsteroid projectile = any (\enemy -> case enemy of
-                                                    Aster asteroid -> playerProjectileHit (Aster asteroid) projectile
-                                                    _ -> False) (enemies gstate)
+        projectileHitEnemy projectile = any (\enemy -> playerProjectileHit enemy projectile) (enemies gstate)
 
 
 --Saucer functions
@@ -501,7 +521,7 @@ fmapProjectilesLifetime secs gstate = gstate { projectiles = map (updateProjecti
 --   Remove saucer crossing border [x]
 
 -- Game mechanics:
---   Implement collision detection. [o] (I think its done? there are probably still interactions i forgot about.... Saucers still need a size probably)
+--   Implement collision detection. [o] 
 --   Implement collision responses. [o]
 --   Add scoring.
 --   Add difficulty progression.
