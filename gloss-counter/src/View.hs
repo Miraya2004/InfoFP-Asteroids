@@ -23,13 +23,19 @@ saucerSprite = Scale 2 2 $ Line [(-3,2),(3,2),(4,0),(-4,0),(-3,2),(-4,0),(-5,0),
 asteroidSprites = Line [(-5,0), (0,5), (5, 0), (0, -5), (-5, 0)]
 
 
+renderProjectiles :: GameState -> Picture
+renderProjectiles GameState {projectiles = p} = Pictures $ map renderProjectile p
+
+renderProjectile :: Projectile -> Picture
+renderProjectile Proj{projPosition = Position(x,y), enemy = evil} | evil      = Translate y x $ Color red $ Circle 3
+                                                                  | otherwise = Translate y x $ Color white $ Circle 3
 
 
 view ::GameState -> IO Picture
 view = return . viewPure
 
 viewPure :: GameState -> Picture
-viewPure gstate = Color white $ Pictures [renderShip gstate, renderEnemies gstate ]
+viewPure gstate = Color white $ Pictures [renderShip gstate, renderEnemies gstate, renderProjectiles gstate ]
 
 renderEnemies :: GameState -> Picture
 renderEnemies GameState{enemies = e} = Pictures $
@@ -65,7 +71,7 @@ renderAsteroids :: [Asteroid] -> [Picture]
 renderAsteroids (a:as) = renderAsteroid a : renderAsteroids as
 renderAsteroids [] = []
 
-renderAsteroid Asteroid{asteroidPosition = Position (x,y), asteroidSize = sizeTier} = Scale size size $ Translate y x $ asteroidSprites
+renderAsteroid Asteroid{asteroidPosition = Position (x,y), asteroidSize = sizeTier} =  Translate y x $ Scale size size $ asteroidSprites
     where size = fromIntegral sizeTier
 
 
