@@ -39,8 +39,17 @@ renderLives Nothing = Blank
 renderUI :: GameState -> Picture
 renderUI GameState {score = score, player = player} = Translate (negate 370) (250) $ Pictures [
                                                             renderScore score,
-                                                            Translate 0 (negate 10) $ renderLives player
+                                                            Translate 0 (negate 10) $ renderLives player,
+                                                            renderEndScreen player
                                                       ]
+
+renderEndScreen :: Maybe Player -> Picture
+renderEndScreen (Just _) = Blank
+renderEndScreen Nothing  = Pictures [
+                                Color white $ Translate (negate 25) (negate 100) $ Scale 1 1       $ Text "GAME OVER",
+                                Color orange $ Translate (negate 0) (negate 200)     $ Scale 0.5 0.5 $ Text "Press C to continue",
+                                Color green $ Translate (negate 0) (negate 300)     $ Scale 0.5 0.5 $ Text "or R to restart"
+                              ]
 
 renderProjectiles :: GameState -> Picture
 renderProjectiles GameState {projectiles = p} = Pictures $ map renderProjectile p
