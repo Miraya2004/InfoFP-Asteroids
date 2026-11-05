@@ -232,26 +232,29 @@ wrapYPosition position = Position (firstPos position, newY)
 -- Collisions functions 
 
 asteroidCollider :: Position -> Asteroid -> Bool
-asteroidCollider pos asteroid | asteroidSize asteroid == 3 = -30 < x && x < 30 && -30 < y && y < 30
-                              | asteroidSize asteroid == 2 = -20 < x && x < 20 && -20 < y && y < 20
-                              | asteroidSize asteroid == 1 = -10 < x && x < 10 && -10 < y && y < 10
+asteroidCollider pos asteroid | asteroidSize asteroid == 3 = withinBounds 30
+                              | asteroidSize asteroid == 2 = withinBounds 20
+                              | asteroidSize asteroid == 1 = withinBounds 10
                               | otherwise = False
                             where 
-                              x = firstPos (asteroidPosition asteroid) - firstPos pos
-                              y = secondPos (asteroidPosition asteroid) - secondPos pos
+                              x = wrappedDifference 800 (firstPos (asteroidPosition asteroid)) (firstPos pos)
+                              y = wrappedDifference 800 (secondPos (asteroidPosition asteroid)) (secondPos pos)
+                              withinBounds size = -size < x && x < size && -size < y && y < size
 
 saucerCollider :: Position -> Saucer -> Bool
-saucerCollider pos saucer | saucerSize saucer == 1 = -10 < x && x < 10 && -10 < y && y < 10
-                          | saucerSize saucer == 2 = -20 < x && x < 20 && -20 < y && y < 20
+saucerCollider pos saucer | saucerSize saucer == 1 = withinBounds 10
+                          | saucerSize saucer == 2 = withinBounds 20
                           | otherwise = False
                           where
-                              x = firstPos (saucerPosition saucer) - firstPos pos
-                              y = secondPos (saucerPosition saucer) - secondPos pos
+                              x = wrappedDifference 800 (firstPos (saucerPosition saucer)) (firstPos pos)
+                              y = wrappedDifference 600 (secondPos (saucerPosition saucer)) (secondPos pos)
+                              withinBounds size = -size < x && x < size && -size < y && y < size
+
 enemyProjectileHit :: Player -> Projectile -> Bool
 enemyProjectileHit player projectile = -5 < x && x < 5 && -5 < y && y < 5
                                 where 
-                                    x = firstPos (playerPosition player) - firstPos (projPosition projectile)
-                                    y = secondPos (playerPosition player) - secondPos (projPosition projectile)
+                                    x = wrappedDifference 800 (firstPos (playerPosition player)) (firstPos (projPosition projectile))
+                                    y = wrappedDifference 600 (secondPos (playerPosition player)) (secondPos (projPosition projectile))
 
 playerProjectileHit :: Enemy -> Projectile -> Bool
 playerProjectileHit (Aster(asteroid)) projectile = asteroidCollider (projPosition projectile) asteroid
@@ -453,7 +456,7 @@ changeSaucerDirection secs saucer gen =
         (vx, vy) = vector2XY (saucerSpeed saucer)
         speed = sqrt (vx * vx + vy * vy)
         direction = if vx >= 0 then 1 else -1
-        changeChance = 1 + (1 - 0.05) ** secs
+        changeChance = 1 - (1 - 0.05) ** secs
         (roll, gen1) = randomR (0.0, 1.0) gen
 
         (angle, gen2) = if roll < changeChance then
@@ -471,7 +474,7 @@ removeSaucers gstate = gstate { enemies = filter keepEnemy (enemies gstate)}
             let 
                 Position (x, _) = saucerPosition saucer
             in
-                x > 400 || x < -400
+                x <= 400 && x >= -400
 
 
 
@@ -486,7 +489,14 @@ secondPos (Position(x, y)) = y
 fmapProjectilesLifetime :: Float -> GameState -> GameState
 fmapProjectilesLifetime secs gstate = gstate { projectiles = map (updateProjectileLifetime secs) (projectiles gstate) }
 
-                                    
+wrappedDifference :: Float -> Float -> Float -> Float
+wrappedDifference screenSize a b
+    | difference > halfScreen = difference - screenSize
+    | difference < -halfScreen = difference + screenSize
+    | otherwise = difference
+    where
+        difference = a - b
+        halfScreen = screenSize / 2
 
 
 
@@ -506,7 +516,7 @@ fmapProjectilesLifetime secs gstate = gstate { projectiles = map (updateProjecti
 --   Implement bullet creation. [x]
 --   Add projectile movement. [x]
 --   Add projectile lifetime. [x]
---   Add firing cooldown and bullet limit. [x]
+--   Add bullet limit. [x] -> Cooldown is not actually implemented in the original seemingly so we wont either
 
 -- Asteroids:
 --   Implement asteroid data structures and movement. [x]
@@ -521,8 +531,8 @@ fmapProjectilesLifetime secs gstate = gstate { projectiles = map (updateProjecti
 --   Remove saucer crossing border [x]
 
 -- Game mechanics:
---   Implement collision detection. [o] 
---   Implement collision responses. [o]
+--   Implement collision detection. [x] 
+--   Implement collision responses. [x]
 --   Add scoring.
 --   Add difficulty progression.
 
