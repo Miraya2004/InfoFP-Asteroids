@@ -43,8 +43,8 @@ renderEnemy (Sauce s) = renderSaucer s
 
 renderSaucer :: Saucer -> Picture
 renderSaucer Saucer {saucerPosition = Position (x,y), saucerSize = s}
-         = Scale size size $ Translate y x $ Color white $ saucerSprite
-            where size = fromIntegral $ s
+         = Translate y x $ Scale size size $ Color white $ saucerSprite
+            where size = fromIntegral s
 
 
 renderShip :: GameState -> Picture
@@ -66,7 +66,7 @@ renderAsteroids (a:as) = renderAsteroid a : renderAsteroids as
 renderAsteroids [] = []
 
 renderAsteroid Asteroid{asteroidPosition = Position (x,y), asteroidSize = sizeTier} = Scale size size $ Translate y x $ asteroidSprites
-    where size = int2Float sizeTier
+    where size = fromIntegral sizeTier
 
 
 
