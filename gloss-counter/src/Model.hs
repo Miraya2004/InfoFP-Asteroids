@@ -60,10 +60,11 @@ data GameState = GameState {
                  , projectiles :: [Projectile]
                  , heldKeys :: [Key]
                  , randomGenerator :: StdGen
+                 , bulletCooldown :: Float
                  }
 
 initialState :: StdGen -> GameState
-initialState gen = GameState ShowNothing 0 (Just initialPlayer) [] Playing 0 [] [] gen
+initialState gen = GameState ShowNothing 0 (Just initialPlayer) [] Playing 0 [] [] gen 0
 
 initialPlayer :: Player
 initialPlayer = Player

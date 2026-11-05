@@ -93,6 +93,10 @@ spawnAsteroids gstate | null (enemies gstate) =
                             (asteroid4, gen4) = spawnInitAsteroid gen3
                         in  gstate {enemies = map Aster [asteroid1, asteroid2, asteroid3, asteroid4], randomGenerator = gen4}
                       | otherwise = gstate
+
+updateBulletCooldown :: Float -> GameState -> GameState
+updateBulletCooldown secs gstate = gstate { bulletCooldown = max 0 (bulletCooldown gstate - secs) }
+
 -- | Handle user input
 input :: Event -> GameState -> IO GameState
 input e gstate = return (inputKey e gstate)
@@ -135,7 +139,8 @@ turnPlayer secs direction player = player { playerRotation = Rotation (resAngle)
 
 -- Projectile Functions
 shootBullet :: GameState -> GameState
-shootBullet gstate | length playerBullets >= 4 = gstate
+shootBullet gstate | bulletCooldown gstate > 0 = gstate
+                   | length playerBullets >= 4 = gstate
                    | otherwise = 
                         case player gstate of
                             Nothing -> gstate
@@ -189,8 +194,8 @@ moveProjectile secs projectile =
 acceleratePlayer :: Float -> Player -> Player
 acceleratePlayer secs p = p { playerSpeed = newSpeed } 
                     where 
-                        acceleration = 40
-                        topSpeed = 300
+                        acceleration = 100
+                        topSpeed = 500
                         Rotation playerAngle = playerRotation p 
 
                         accelerationVector = vector2 (cos playerAngle) (sin playerAngle)
