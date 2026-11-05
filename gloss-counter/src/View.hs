@@ -83,7 +83,7 @@ renderEnemy (Sauce s) = renderSaucer s
 
 renderSaucer :: Saucer -> Picture
 renderSaucer Saucer {saucerPosition = Position (x,y), saucerSize = s}
-         = Translate y x $ Scale size size $ Color white $ saucerSprite
+         = Translate x (negate y) $ Scale size size $ Color white $ saucerSprite
             where size = fromIntegral s
 
 
