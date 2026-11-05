@@ -362,7 +362,7 @@ checkEnemyCollisions gstate =
         
         updateEnemy (Sauce saucer) 
             | asteroidHitSaucer saucer = []
-            | projectileHitSaucer saucer = []
+            | projectileHitSaucer saucer = [Sauce saucer]
             | playerHitSaucer saucer = []
             | otherwise = [Sauce saucer]
         --Asteroids
@@ -381,7 +381,7 @@ checkEnemyCollisions gstate =
                                         Aster asteroid -> asteroidCollider (saucerPosition saucer) asteroid 
                                         _ -> False ) (enemies gstate)
 
-        projectileHitSaucer saucer = any (\projectile -> playerProjectileHit (Sauce saucer) projectile) (projectiles gstate)
+        projectileHitSaucer saucer = any (\projectile -> not (enemy projectile) && playerProjectileHit (Sauce saucer) projectile) (projectiles gstate)
 
         playerHitSaucer saucer = 
             case player gstate of
@@ -395,8 +395,10 @@ checkEnemyCollisions gstate =
         
         remainingProjectiles = filter (not . projectileHitEnemy) (projectiles gstate)
 
-        projectileHitEnemy projectile = any (\enemy -> playerProjectileHit enemy projectile) (enemies gstate)
-
+        projectileHitEnemy projectile | (enemy projectile) = any (\enemy -> case enemy of 
+                                                            Aster _ -> playerProjectileHit enemy projectile
+                                                            Sauce _ -> False) (enemies gstate)
+                                      | otherwise = any (\enemy -> playerProjectileHit enemy projectile) (enemies gstate)
 
 --Saucer functions
 spawnSaucer :: StdGen -> (Saucer, StdGen)
