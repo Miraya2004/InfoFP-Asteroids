@@ -18,19 +18,20 @@ step secs gstate
     | otherwise = return $
         (checkEnemyCollisions
             (checkPlayerCollisions
-                (removeExpiredProjectiles
-                    (fmapProjectilesLifetime secs
-                        (applySaucerShooting secs
-                            (applyProjectileMovement secs
-                                (removeSaucers
-                                    (applyEnemyMovement secs
-                                        (applySaucerDirections secs
-                                            (applyMovement secs
-                                                (applyDeceleration secs
-                                                    (useHeldKeys secs
-                                                        (updateBulletCooldown secs
-                                                            (periodicSpawner secs
-                                                                (spawnAsteroids gstate)))))))))))))))
+                (updatePlayerRespawnTimer secs
+                    (removeExpiredProjectiles
+                        (fmapProjectilesLifetime secs
+                            (applySaucerShooting secs
+                                (applyProjectileMovement secs
+                                    (removeSaucers
+                                        (applyEnemyMovement secs
+                                            (applySaucerDirections secs
+                                                (applyMovement secs
+                                                    (applyDeceleration secs
+                                                        (useHeldKeys secs
+                                                            (updateBulletCooldown secs
+                                                                (periodicSpawner secs
+                                                                    (spawnAsteroids gstate))))))))))))))))
         { elapsedTime = elapsedTime gstate + secs }
 
 -- Apply everything in step
@@ -97,6 +98,9 @@ spawnAsteroids gstate | null (enemies gstate) =
 
 updateBulletCooldown :: Float -> GameState -> GameState
 updateBulletCooldown secs gstate = gstate { bulletCooldown = max 0 (bulletCooldown gstate - secs) }
+
+updatePlayerRespawnTimer :: Float -> GameState -> GameState
+updatePlayerRespawnTimer secs gstate = gstate { playerRespawn = max 0 (playerRespawn gstate - secs)}
 
 -- | Handle user input
 input :: Event -> GameState -> IO GameState
@@ -292,17 +296,19 @@ destroyPlayer gstate = case player gstate of
                         Just p -> 
                             let remLives = lives p - 1
                             in if remLives > 0 
-                                then gstate {player = Just (respawnPlayer (p {lives = remLives}))}
+                                then gstate {player = Just (respawnPlayer (p {lives = remLives})), playerRespawn = 3.0}
                                 else gstate {player = Nothing}
 
 checkPlayerCollisions :: GameState -> GameState
-checkPlayerCollisions gstate = 
-    case player gstate of 
-        Nothing -> gstate
-        Just p -> 
-            if playerCollision p || projectileCollision p 
-                then destroyPlayer gstate
-                else gstate
+checkPlayerCollisions gstate 
+    | playerRespawn gstate > 0 = gstate
+    | otherwise = 
+        case player gstate of 
+            Nothing -> gstate
+            Just p -> 
+                if playerCollision p || projectileCollision p 
+                    then destroyPlayer gstate
+                    else gstate
     where 
         playerCollision p = any (playerEnemyHit p) (enemies gstate)
         projectileCollision p = any (enemyProjectileHit p) (filter enemy (projectiles gstate))
@@ -379,10 +385,12 @@ checkEnemyCollisions gstate =
                                             Sauce saucer -> asteroidCollider (saucerPosition saucer) asteroid
                                             _ -> False) (enemies gstate)
 
-        playerHitAsteroid asteroid =
-            case player gstate of 
-                Nothing -> False 
-                Just p -> playerEnemyHit p (Aster asteroid)
+        playerHitAsteroid asteroid 
+            | playerRespawn gstate > 0 = False
+            | otherwise =
+                case player gstate of 
+                    Nothing -> False 
+                    Just p -> playerEnemyHit p (Aster asteroid)
         --Saucers
         asteroidHitSaucer saucer = any (\enemy -> case enemy of
                                         Aster asteroid -> asteroidCollider (saucerPosition saucer) asteroid 
@@ -390,16 +398,20 @@ checkEnemyCollisions gstate =
 
         projectileHitSaucer saucer = any (\projectile -> not (enemy projectile) && playerProjectileHit (Sauce saucer) projectile) (projectiles gstate)
 
-        playerHitSaucer saucer = 
-            case player gstate of
-                Nothing -> False
-                Just p -> playerEnemyHit p (Sauce saucer)
+        playerHitSaucer saucer 
+            | playerRespawn gstate > 0 = False
+            | otherwise =
+                case player gstate of
+                    Nothing -> False
+                    Just p -> playerEnemyHit p (Sauce saucer)
 
-        playerWasHit =
-            case player gstate of
-                Nothing -> False
-                Just p -> any (playerEnemyHit p) (enemies gstate)
-        
+        playerWasHit
+            | playerRespawn gstate > 0 = False
+            | otherwise =
+                case player gstate of
+                    Nothing -> False
+                    Just p -> any (playerEnemyHit p) (enemies gstate)
+            
         remainingProjectiles = filter (not . projectileHitEnemy) (projectiles gstate)
 
         projectileHitEnemy projectile | (enemy projectile) = any (\enemy -> case enemy of 
@@ -548,7 +560,7 @@ wrappedDifference screenSize a b
 -- TODO:
 -- Player:
 --   Add screen wrapping. [x]
---   Add player lives and respawning. [o] (TODO respawnInvuln)
+--   Add player lives and respawning. [x]
 --   Add player destruction. [x]
 
 -- Projectiles:
@@ -572,7 +584,7 @@ wrappedDifference screenSize a b
 -- Game mechanics:
 --   Implement collision detection. [x] 
 --   Implement collision responses. [x]
---   Add scoring.
+--   Add scoring. [x]
 --   Add difficulty progression.
 
 -- Game flow:
