@@ -362,7 +362,7 @@ checkEnemyCollisions gstate =
         
         updateEnemy (Sauce saucer) 
             | asteroidHitSaucer saucer = []
-            | projectileHitSaucer saucer = [Sauce saucer]
+            | projectileHitSaucer saucer = []
             | playerHitSaucer saucer = []
             | otherwise = [Sauce saucer]
         --Asteroids
